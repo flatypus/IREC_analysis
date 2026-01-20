@@ -170,30 +170,39 @@ def plot_quaternions(time, quat_list):
     print(f"Time range: {time[0]:.2f} to {time[-1]:.2f} ms")
 
 
-def plot_euler_angles(time, bno_x, bno_y, bno_z):
+def plot_linear_acceleration(time, bno_x, bno_y, bno_z):
+    """
+    Plot BNO080 Linear Acceleration (gravity-compensated).
+    From: bno080.getLinearAccelerometer(&bno_x, &bno_y, &bno_z)
+    Units are m/s² with gravity already removed.
+    """
     fig, axes = plt.subplots(3, 1, figsize=(16, 10))
-    fig.suptitle('BNO055 Euler Angles vs Time',
+    fig.suptitle('BNO080 Linear Acceleration (Gravity Removed) vs Time',
                  fontsize=14, fontweight='bold')
 
     axes[0].plot(time, bno_x, 'r-', linewidth=0.5, alpha=0.7)
-    axes[0].set_ylabel('BNO_X (degrees)', fontsize=10)
-    axes[0].set_title('BNO_X (Heading/Yaw)', fontsize=11)
+    axes[0].set_ylabel('Linear Accel X (m/s²)', fontsize=10)
+    axes[0].set_title('BNO_X - Linear Acceleration X', fontsize=11)
+    axes[0].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
     axes[0].grid(True, alpha=0.3)
 
     axes[1].plot(time, bno_y, 'g-', linewidth=0.5, alpha=0.7)
-    axes[1].set_ylabel('BNO_Y (degrees)', fontsize=10)
-    axes[1].set_title('BNO_Y (Roll)', fontsize=11)
+    axes[1].set_ylabel('Linear Accel Y (m/s²)', fontsize=10)
+    axes[1].set_title(
+        'BNO_Y - Linear Acceleration Y (Thrust Axis)', fontsize=11)
+    axes[1].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
     axes[1].grid(True, alpha=0.3)
 
     axes[2].plot(time, bno_z, 'b-', linewidth=0.5, alpha=0.7)
-    axes[2].set_ylabel('BNO_Z (degrees)', fontsize=10)
+    axes[2].set_ylabel('Linear Accel Z (m/s²)', fontsize=10)
     axes[2].set_xlabel('Time (ms)', fontsize=10)
-    axes[2].set_title('BNO_Z (Pitch)', fontsize=11)
+    axes[2].set_title('BNO_Z - Linear Acceleration Z', fontsize=11)
+    axes[2].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
     axes[2].grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig('euler_angles.png', dpi=300, bbox_inches='tight')
-    print(f"Graph saved as 'euler_angles.png'")
+    plt.savefig('linear_acceleration.png', dpi=300, bbox_inches='tight')
+    print(f"Graph saved as 'linear_acceleration.png'")
     print(f"Total data points: {len(time)}")
     print(f"Time range: {time[0]:.2f} to {time[-1]:.2f} ms")
 
@@ -282,7 +291,7 @@ if __name__ == '__main__':
     airbrake_pct_data = airbrake_pct_data[min_index:max_index]
     pressure_data = pressure_data[min_index:max_index]
 
-    plot_euler_angles(time_data, bno_x_data, bno_y_data, bno_z_data)
+    plot_linear_acceleration(time_data, bno_x_data, bno_y_data, bno_z_data)
     plot_quaternions(time_data, quat_data)
     plot_body_vs_global(time_data, xg_data, yg_data, zg_data, quat_data)
     plot_acc_vs_ab_pct(time_data, yg_data, airbrake_pct_data)

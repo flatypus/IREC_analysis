@@ -3,14 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def quat_to_matrix(w, x, y, z):
+    return np.array([
+        [1 - 2*(y**2 + z**2), 2*(x*y - w*z), 2*(x*z + w*y)],
+        [2*(x*y + w*z), 1 - 2*(x**2 + z**2), 2*(y*z - w*x)],
+        [2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x**2 + y**2)]
+    ])
+
+
 def local_to_global_ac(accel_local, quat):
     r, i, j, k = quat
     ax, ay, az = accel_local
-    rotation_matrix = np.array([
-        [1 - 2*(j**2 + k**2), 2*(i*j - r*k), 2*(i*k + r*j)],
-        [2*(i*j + r*k), 1 - 2*(i**2 + k**2), 2*(j*k - r*i)],
-        [2*(i*k - r*j), 2*(j*k + r*i), 1 - 2*(i**2 + j**2)]
-    ])
+    rotation_matrix = quat_to_matrix(r, i, j, k)
     accel_vec_local = np.array([ax, ay, az])
     accel_global_standard = np.dot(rotation_matrix, accel_vec_local)
     return accel_global_standard
@@ -45,17 +49,19 @@ def derivative(time_data, data):
 
 
 def plot_inertial_vel_vs_barom(time_data, accel_data, quat_data, altitude_data):
-    fig, axes = plt.subplots(5, 1, figsize=(12, 14))
+    fig, axes = plt.subplots(6, 1, figsize=(12, 16))
     fig.suptitle('Inertial vs Barometric Comparison',
                  fontsize=14, fontweight='bold')
     global_ac = []
     for idx, acc in enumerate(accel_data):
         i, j, k, real = quat_data[idx]
-        # Using body Y acceleration directly (thrust axis)
-        global_ac.append(acc[1])
-    global_ac = np.array(global_ac)
+        global_ac.append(acc[1])  # using rocket frame y acceleration
+        # using global frame z acceleration
+        # global_ac.append(local_to_global_ac(acc, (real, i, j, k)))
 
+    global_ac = np.array(global_ac)
     global_ac_z = global_ac
+    # _, _, global_ac_z = global_ac.T
     # z is the component we care about
     # take into consideration existing 1g
     vertical_acc = (global_ac_z - 1.0) * 9.80665  # gs to m/s^2
@@ -74,39 +80,51 @@ def plot_inertial_vel_vs_barom(time_data, accel_data, quat_data, altitude_data):
     axes[0].set_title('Body Y Acceleration vs Time', fontsize=11)
     axes[0].grid(True, alpha=0.3)
 
-    axes[1].plot(time_data, vertical_velocity, 'b-', linewidth=0.5, alpha=0.7,
-                 label='Inertial')
-    axes[1].plot(time_data, barometric_velocity, 'orange', linewidth=1.0, alpha=0.8,
-                 label='Barometric (smoothed)')
-    axes[1].set_ylabel('Velocity (m/s)', fontsize=10)
+    jerk = derivative(time_data, global_ac_z)
+    jerk_smoothed = smooth_data(jerk, window_size=3)
+    axes[1].plot(time_data, jerk, 'purple',
+                 linewidth=0.3, alpha=0.4, label='Raw')
+    axes[1].plot(time_data, jerk_smoothed, 'm-',
+                 linewidth=1.0, alpha=0.9, label='Smoothed')
+    axes[1].set_ylabel('Jerk (g/s)', fontsize=10)
     axes[1].set_title(
-        'Velocity Comparison: Inertial vs Barometric', fontsize=11)
+        'Jerk (Rate of Change of Acceleration) vs Time', fontsize=11)
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
 
-    axes[2].plot(time_data, vertical_position, 'r-', linewidth=0.5, alpha=0.7)
-    axes[2].set_ylabel('Inertial altitude (m)', fontsize=10)
-    axes[2].set_title('Inertial Altitude vs Time', fontsize=11)
+    axes[2].plot(time_data, vertical_velocity, 'b-', linewidth=0.5, alpha=0.7,
+                 label='Inertial')
+    axes[2].plot(time_data, barometric_velocity, 'orange', linewidth=1.0, alpha=0.8,
+                 label='Barometric (smoothed)')
+    axes[2].set_ylabel('Velocity (m/s)', fontsize=10)
+    axes[2].set_title(
+        'Velocity Comparison: Inertial vs Barometric', fontsize=11)
+    axes[2].legend()
     axes[2].grid(True, alpha=0.3)
 
-    axes[3].plot(time_data, altitude_data, 'g-', linewidth=0.5, alpha=0.3,
-                 label='Raw')
-    axes[3].plot(time_data, altitude_smoothed, 'g-', linewidth=1.5, alpha=0.9,
-                 label='Smoothed')
-    axes[3].set_ylabel('Barometric Altitude (m)', fontsize=10)
-    axes[3].set_title(
-        'Barometric Altitude vs Time (Raw + Smoothed)', fontsize=11)
-    axes[3].legend()
+    axes[3].plot(time_data, vertical_position, 'r-', linewidth=0.5, alpha=0.7)
+    axes[3].set_ylabel('Inertial altitude (m)', fontsize=10)
+    axes[3].set_title('Inertial Altitude vs Time', fontsize=11)
     axes[3].grid(True, alpha=0.3)
 
-    axes[4].plot(time_data, barometric_velocity,
-                 'orange', linewidth=1.0, alpha=0.8)
-    axes[4].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
-    axes[4].set_ylabel('Barometric Velocity (m/s)', fontsize=10)
-    axes[4].set_xlabel('Time (seconds)', fontsize=10)
+    axes[4].plot(time_data, altitude_data, 'g-', linewidth=0.5, alpha=0.3,
+                 label='Raw')
+    axes[4].plot(time_data, altitude_smoothed, 'g-', linewidth=1.5, alpha=0.9,
+                 label='Smoothed')
+    axes[4].set_ylabel('Barometric Altitude (m)', fontsize=10)
     axes[4].set_title(
-        'Barometric Velocity (from smoothed altitude derivative)', fontsize=11)
+        'Barometric Altitude vs Time (Raw + Smoothed)', fontsize=11)
+    axes[4].legend()
     axes[4].grid(True, alpha=0.3)
+
+    axes[5].plot(time_data, barometric_velocity,
+                 'orange', linewidth=1.0, alpha=0.8)
+    axes[5].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
+    axes[5].set_ylabel('Barometric Velocity (m/s)', fontsize=10)
+    axes[5].set_xlabel('Time (seconds)', fontsize=10)
+    axes[5].set_title(
+        'Barometric Velocity (from smoothed altitude derivative)', fontsize=11)
+    axes[5].grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.savefig('inertial_vs_barom.png', dpi=300, bbox_inches='tight')
