@@ -1,29 +1,16 @@
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
+from inertial_vs_barom import local_to_global_ac
 
-
-def local_to_global_ac(accel_local, quat):
-    """Transform acceleration from body frame to global frame using quaternion."""
-    r, i, j, k = quat
-    rotation_matrix = np.array([
-        [1 - 2*(j**2 + k**2), 2*(i*j - r*k), 2*(i*k + r*j)],
-        [2*(i*j + r*k), 1 - 2*(i**2 + k**2), 2*(j*k - r*i)],
-        [2*(i*k - r*j), 2*(j*k + r*i), 1 - 2*(i**2 + j**2)]
-    ])
-    return np.dot(rotation_matrix, np.array(accel_local))
-
-
-# Parse file
 time_data = []
 xg_data = []
 yg_data = []
 zg_data = []
 quat_data = []
-# BNO Euler angles (from BNO_X, BNO_Y, BNO_Z columns)
-bno_x_data = []  # Roll or Heading
-bno_y_data = []  # Pitch
-bno_z_data = []  # Yaw or Roll
+bno_x_data = []
+bno_y_data = []
+bno_z_data = []
 airbrake_pct_data = []
 pressure_data = []
 
@@ -37,14 +24,12 @@ with open('LOG028.TXT', mode='r', newline='', encoding='utf-8') as file:
         xg_data.append(float(values[1]))
         yg_data.append(float(values[2]))
         zg_data.append(float(values[3]))
-        # BNO Euler angles are at indices 10, 11, 12
         bno_x, bno_y, bno_z = map(float, values[10:13])
         bno_x_data.append(bno_x)
         bno_y_data.append(bno_y)
         bno_z_data.append(bno_z)
-        # Quaternion at indices 13-16
         i, j, k, real = map(float, values[13:17])
-        quat_data.append((real, i, j, k))  # Store as (scalar, i, j, k)
+        quat_data.append((real, i, j, k))
         airbrake_pct_data.append(float(values[18]))
         pressure_data.append(float(values[4]))
 
